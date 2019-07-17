@@ -5,7 +5,8 @@
 # It also prints the chromosome name when done. Redirect the output to /dev/null to suppress it.
 
 declare -i MAX_FORKS=8
-INFILE=$(echo $1 | sed 's/.*\///')
+INFILE=$1
+FNAME=$(echo $1 | sed 's/.*\///')
 echo "processing $INFILE"
 
 tmp_dir=$RANDOM\-chr\-dir
@@ -32,6 +33,6 @@ for chrom in $chromosome_list; do
 done
 wait
 
-cat $tmp_dir/*.txt | sort --parallel 8 -uo barcodes_$INFILE.txt
+cat $tmp_dir/*.txt | sort --parallel 8 -uo barcodes_$FNAME.txt
 rm -rf $tmp_dir	
 
