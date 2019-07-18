@@ -1,5 +1,4 @@
 #!/usr/bin/bash
-
 # This script takes .bam file as an input and extracts all unique cell barcodes present in that file.
 # It processes each chromosome separately (in parallel) and then merges the results. 
 # It also prints the chromosome name when done. Redirect the output to /dev/null to suppress it.
@@ -35,4 +34,3 @@ wait
 
 cat $tmp_dir/*.txt | sort --parallel 8 -uo barcodes_$FNAME.txt
 rm -rf $tmp_dir	
-
