@@ -40,18 +40,18 @@ def feature_mx_from_barcode(cb):
     cb_bam = "{}/cb_{}.bam".format(tmp_dir, cb)
     os.system("./subset-bam -c {} -b {} -o {} --cores {}".format(cb_txt, args.bam, cb_bam, CORES_PER_JOB))  
     os.system("rm {}".format(cb_txt)) # why keep the file when it's not needed anymore
-    print("{}: finished subsetting".format(cb))
+#    print("{}: finished subsetting".format(cb))
 
     # file needs to be indexed after subsetting
     os.system("samtools index {}".format(cb_bam))
-    print("{}: finished indexing".format(cb))
+#    print("{}: finished indexing".format(cb))
 
     # here the binning and read counting happens
     cb_bedg = "{}/cb_{}.bedg".format(tmp_dir, cb)
     os.system("bamCoverage -b {} -o {} -of bedgraph --binSize {} --numberOfProcessors {}"\
              .format(cb_bam, cb_bedg, args.width, CORES_PER_JOB))
     os.system("rm {}".format(cb_bam)) # saving disk memory
-    print("{}: finished coverage".format(cb))
+#    print("{}: finished coverage".format(cb))
 
 
 try:
