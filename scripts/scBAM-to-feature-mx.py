@@ -110,7 +110,7 @@ try:
 
         gen = cb_lst[1:]
         if args.verbose:
-            gen = tqdm(gen, des=".bedg to merge")
+            gen = tqdm(gen, desc=".bedg to merge")
         for cb in gen:
             tmp_df = pd.read_csv('{}/cb_{}.bedg'.format(tmp_dir, cb), sep='\t',
                                 names=["chromosome", "bin_start", "bin_end", cb])        
