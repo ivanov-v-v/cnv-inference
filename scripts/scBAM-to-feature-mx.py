@@ -1,3 +1,26 @@
+#==================================================================================#
+# This script takes scBAM file with a list of cell barcodes as an input,           #
+# carries out the genome binning and produces the matrix of gene counts.           #
+# This matrix comes in .tsv format with the following columns names:               #
+# chromosome    bin_start   bin_end cell_barcode_1  cell_barcode_2  ...            #
+#==================================================================================#
+# Currently each barcode is processed separately. As there may be thousands        #
+# of unique barcodes in each sample, this makes the BAM splitting a bottleneck.    #
+# We are thinking about processing barcodes in groups using prior information      #
+# (for example, clusters found by Louvain's algorithm and outputted by CellRanger).#
+# In order to run this script, please, download the subset-bam binary from github  #
+# repository of 10XGenomics: https://github.com/10XGenomics/subset-bam — and place #
+# the binary in the same directory! If it's not there, it will be downloaded.      #
+#==================================================================================#
+# In order to achieve peak performance, follow the guidelines: if you have N cores,#
+# then batch_size must be set to be about N/16 or N/8. As BAM splitting is a hard  #
+# operation, it is important to run as many simultaneous splits in parallel        #
+# as possible. Processing of each barcode is distributed evenly over the cores.    #
+#==================================================================================#
+# Current version of the script processes 4 barcodes from 30gb file with 5k cells  #
+# in 10 minutes. Performance improvements are possible.                            #
+#==================================================================================#
+
 import argparse
 import multiprocessing as mp
 import numpy as np
@@ -7,13 +30,16 @@ from tqdm import tqdm
 
 N_CORES = mp.cpu_count() # number of available cores
 
-parser = argparse.ArgumentParser(description='provide the .bam file and the list of unique cell barcodes '
-                                             'outputted by CellRanger together with the desired bin width')
-parser.add_argument('--bam', type=str, help=".bam from CellRanger\'s output")
-parser.add_argument('--cb', type=str, help="list of unique cell barcodes from CellRanger\'s output")
-parser.add_argument('--width', type=int, default=1000000, help='width of a bin (in bp)')
-#parser.add_argument('--verbose', nargs=0, type=bool, default=True, help="verbose")
-parser.add_argument('--batch_size', type=int, default=4, help='barcodes will be processed in chunks of this size')
+parser = argparse.ArgumentParser(description='Provide the .bam file and the list of unique cell barcodes '
+                                             'outputted by CellRanger together with the desired bin width. '
+                                             'Requires subset-bam from 10XGenomics, in binary: https://github.com/10XGenomics/subset-bam. '
+                                             'Download the file and put it in the same drirectory.')
+parser.add_argument('bam', type=str, help=".bam from CellRanger\'s output")
+parser.add_argument('cb', type=str, help="list of unique cell barcodes from CellRanger\'s output")
+parser.add_argument('-o', '--out', type=str, default=None, help="location of the outputted matrix")
+parser.add_argument('-w', '--width', type=int, default=1000000, help='width of a bin (in bp)')
+parser.add_argument('-v', '--verbose',  help="display progress bars", action="store_true")
+parser.add_argument('-s', '--batch_size', type=int, default=4, help='barcodes will be processed in chunks of this size')
 
 args = parser.parse_args()
 
@@ -30,6 +56,11 @@ assert sample_name.split('.')[-1] == 'bam'
 sample_name = '.'.join(sample_name.split('.')[:-1])
 
 CORES_PER_JOB = np.ceil(N_CORES / args.batch_size).astype(int)
+if not os.path.exists("subset-bam"):
+    os.system("wget 'https://github.com/10XGenomics/subset-bam/releases/download/1.0/subset-bam-1.0-x86_64-linux.tar.gz'")
+    os.system("gunzip subset-bam-1.0-x86_64-linux.tar.gz")
+    os.system("mv subset-bam-1.0-x86_64-linux/subset-bam .")
+    os.system("rm -rf subset-bam-1.0-x86_64-linux")
 
 
 def feature_mx_from_barcode(cb):
@@ -61,7 +92,11 @@ try:
         cb_lst.sort()
         n_cb = len(cb_lst)
         assert n_cb > 0, "empty list of cell barcodes"
-        for i in tqdm(range(0, n_cb, args.batch_size), desc="batch of cell barcodes"):	
+
+        gen = range(0, n_cb, args.batch_size)
+        if args.verbose:
+            gen = tqdm(gen, desc="batch of cell barcodes")
+        for i in gen:
             cb_batch = cb_lst[i : i + args.batch_size]
             pool = mp.Pool(args.batch_size)
             pool.map(feature_mx_from_barcode, cb_batch)
@@ -70,14 +105,17 @@ try:
 
         # and then we merge those vectors into feature matrix
         result_df = pd.read_csv("{}/cb_{}.bedg".format(tmp_dir, cb_lst[0]), sep='\t',
-                                names=["chrom", "bin_start", "bin_end", cb_lst[0]])
+                                names=["chromosome", "bin_start", "bin_end", cb_lst[0]])
+        result_tsv = "read_fmx_{}.tsv".format(sample_name) if args.out is None else args.out
 
-        result_csv = "read_fmx_{}.csv".format(sample_name)
-        for cb in tqdm(cb_lst[1:], desc=".bedg to merge"):
+        gen = cb_lst[1:]
+        if args.verbose:
+            gen = tqdm(gen, des=".bedg to merge")
+        for cb in gen:
             tmp_df = pd.read_csv('{}/cb_{}.bedg'.format(tmp_dir, cb), sep='\t',
-                                names=["chrom", "bin_start", "bin_end", cb])        
+                                names=["chromosome", "bin_start", "bin_end", cb])        
             result_df[cb] = tmp_df[cb]
-            result_df.to_csv(result_csv, index=False, sep='\t')
+            result_df.to_csv(result_tsv, index=False, sep='\t')
 
 finally:
     os.system("rm -rf {}".format(tmp_dir))
