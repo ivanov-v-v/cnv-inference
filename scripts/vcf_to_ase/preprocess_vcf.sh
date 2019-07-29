@@ -26,11 +26,11 @@ echo "initiating phase 2..."
 xsv select CHROM,POS $INTERIM_CSV > "$TMP_DIR/raw_snps.txt" &
 xsv select CHROM,POS $PHASING_CSV > "$TMP_DIR/phased_snps.txt" &
 wait
-grep -Fn -f "$TMP_DIR/phased_snps.txt" "$TMP_DIR/raw_snps.txt" \
+
+grep -Fxn -f "$TMP_DIR/phased_snps.txt" "$TMP_DIR/raw_snps.txt" \
 | pv | awk -F ':' '{print $1}' > "$TMP_DIR/match_ids.txt"
 g++ --std=c++11 ./select_by_index.cpp -o select_by_index.o
 ./select_by_index.o $INTERIM_CSV  $TMP_DIR/match_ids.txt $OUT_CSV
 xsv index $OUT_CSV
-
 echo "dropped out non-phased SNPs"
 
