@@ -38,15 +38,13 @@ int main(int argc, char** argv) {
     std::vector<std::string> outbuff; 
 
     for (size_t i = 1; !infile.eof() && it_to_id != id_vec.end(); ++i) {
+        infile >> dataline;
         if (i == *it_to_id) {
             ++it_to_id;
-            infile >> dataline;
             outbuff.push_back(std::move(dataline));
             if (outbuff.size() == BUFF_SIZE) {
                 flush_buffer(outfile, outbuff);
             }
-        } else {
-            infile.ignore(INF, '\n');
         }
     }
     
