@@ -24,5 +24,5 @@ try:
         args.out,
         args.tmp_dir
     ))
-finally: pass
-    #os.system(f"rm -rf {args.tmp_dir}")
+finally: 
+    os.system(f"rm -rf {args.tmp_dir}")
