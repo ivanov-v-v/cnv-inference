@@ -17,7 +17,7 @@ def compute_ase(counts_df, barcode_list):
     return ase_df
 
 
-def plot_ase(ase_df, title="", figsize=(10,10), **clustermap_kwargs):
+def plot_ase(ase_df, row_cluster=False, title="", figsize=(10,10), **clustermap_kwargs):
     try: 
         sns.clustermap(
             ase_df\
@@ -26,7 +26,7 @@ def plot_ase(ase_df, title="", figsize=(10,10), **clustermap_kwargs):
             .values,
             cmap="viridis",
             figsize=figsize,
-            row_cluster=False,
+            row_cluster=row_cluster,
             xticklabels=[colname for colname in ase_df.columns 
                          if colname != "GENE_ID"], 
             **clustermap_kwargs

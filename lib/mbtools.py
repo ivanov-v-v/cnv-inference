@@ -10,7 +10,7 @@ def extract_barcodes(df):
     barcode_pattern = r"(^(A|C|G|T)+-1)|(.*_(ad|dp)$)"
     for colname in df.columns:
         if re.match(barcode_pattern, colname) is not None:
-            barcode_list.append(colname.split("_")[0])
+            barcode_list.append('_'.join(colname.split("_")[:-1]))
     return np.unique(barcode_list)
 
 
@@ -74,7 +74,8 @@ def aggregate_by_barcode_groups(counts_df, clustering_df):
     
     result_df = pd.DataFrame()
     
-    for label in tqdm_notebook(cluster_labels, desc="cluster label"):
+    for label in tqdm_notebook(cluster_labels, 
+                               desc="adding up read counts in each cluster"):
         for suffix in ["ad", "dp"]:
             result_df[f"{label}_{suffix}"] = np.zeros(counts_df.shape[0])    
             na_mask = np.full(counts_df.shape[0], True)
