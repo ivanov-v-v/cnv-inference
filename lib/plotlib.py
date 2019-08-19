@@ -3,7 +3,7 @@ import numpy as np
 import seaborn as sns
 from tqdm import tqdm_notebook
 
-import mbtools 
+import toolkit
 
 # This function is really, REALLY inefficient. It implicitly converts counts_df to dense,
 # which is absolutely unacceptable given the size of that dataframe.
@@ -29,7 +29,7 @@ def describe_read_counts(counts_df, desc, clustering_df=None, feature_name="SNP"
     
     print("{} columns, {} barcodes, {} {}s".format(
         counts_df.shape[1],
-        len(mbtools.extract_barcodes(counts_df)),
+        len(toolkit.extract_barcodes(counts_df)),
         counts_df.shape[0],
         feature_name
     ))
@@ -40,18 +40,18 @@ def describe_read_counts(counts_df, desc, clustering_df=None, feature_name="SNP"
     counts_df.isna().mean().hist(ax=axes[0,0]);
 
     axes[0,1].set_title(f"Reads per {feature_name} (on average) per cell");
-    mbtools.extract_counts(counts_df, suffix="dp").mean().hist(ax=axes[0,1]);
+    toolkit.extract_counts(counts_df, suffix="dp").mean().hist(ax=axes[0,1]);
 
     axes[1,0].set_title("Reads per barcode (in total)");
-    mbtools.extract_counts(counts_df, suffix="dp").sum().hist(ax=axes[1,0]);
+    toolkit.extract_counts(counts_df, suffix="dp").sum().hist(ax=axes[1,0]);
 
     axes[1,1].set_title(f"{feature_name}s with at least one mapped read (one point per cell)");
-    (mbtools.extract_counts(counts_df, suffix="dp") > 0).sum().hist(ax=axes[1,1]);
+    (toolkit.extract_counts(counts_df, suffix="dp") > 0).sum().hist(ax=axes[1,1]);
     fig.show()
 
     if clustering_df is not None:
-        cluster_to_barcodes = mbtools.extract_clusters(clustering_df)
-        cluster_label_list = mbtools.extract_cluster_labels(clustering_df)
+        cluster_to_barcodes = toolkit.extract_clusters(clustering_df)
+        cluster_label_list = toolkit.extract_cluster_labels(clustering_df)
         print("Cluster labels: ", cluster_label_list)
 
         n_clusters = len(cluster_label_list)

@@ -1,15 +1,18 @@
+import os
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
-from tqdm import tqdm_notebook
+from tqdm import tqdm, tqdm_notebook
 
-import mbtools
+import toolkit
 
 
 class AseMleClassifier:
-    def __init__(self, dna_clustering_df, rna_clustering_df):
+    def __init__(self, dna_clustering_df, rna_clustering_df, verbose=False):
         self.dna_clustering_df = dna_clustering_df
         self.rna_clustering_df = rna_clustering_df
+        self._errstream = sys.stdout if verbose else open(os.devnull, "w+")
         
     def _assign_label(self, barcode):
         loglikelihood = []
@@ -36,30 +39,45 @@ class AseMleClassifier:
         self.labels = np.array(
             [
                 self._assign_label(barcode) for barcode in 
-                tqdm_notebook(mbtools.extract_barcodes(self.rna_counts_df), 
-                              desc="barcode processing")
+                tqdm(toolkit.extract_barcodes(self.rna_counts_df), 
+                     desc="barcode processing", file=self._errstream)
             ]
         )
 
         return self.labels
     
-    def classification_report(self, labels, title):
-        sns.set(style="whitegrid")
-        plt.figure(figsize=(20,10))
-        plt.title("Cluster label assigned by MLE", fontsize=20)
-        sns.countplot(labels)
+    def classification_report(self, labels, title, outfile=None):
+        sns.set(style="whitegrid", font_scale=1.5)
+        fig, ax = plt.subplots(2, 1, figsize=(20,25))
+        ax[0].set_title("Cluster label assigned by MLE", fontsize=20)
+        sns.countplot(
+            labels, 
+#             palette={
+#                 1 : "#3182bd", #"C0",
+#                 2 : "#2ca25f", #"C2",
+#                 3 : "#feb24c"#"C1"
+#             },
+            ax=ax[0]
+        )
         
         sns.set(style="whitegrid", font_scale=1.5);
-        plt.figure(figsize=(20,10))
     
-        plt.title(title)
+        ax[1].set_title(title)
         
         sns.scatterplot(
             x="TSNE_1", y="TSNE_2", 
             hue=labels, 
             data=self.rna_clustering_df, 
-            palette="jet"
+            legend="full",
+#             palette={
+#                 1 : "#3182bd", #"C0",
+#                 2 : "#2ca25f", #"C2",
+#                 3 : "#feb24c"#"C1"
+#             },
+            ax=ax[1]
         );
-        plt.legend().get_frame().set_facecolor("white");
-        plt.legend(frameon=False, bbox_to_anchor=(1,0.5), loc="center left")
-        plt.subplots_adjust(right=0.75)
+        ax[1].legend().get_frame().set_facecolor("white");
+        ax[1].legend(frameon=False, bbox_to_anchor=(1,0.5), loc="center left")
+        fig.subplots_adjust(right=0.75)
+        if outfile is not None:
+            fig.savefig(outfile, format=outfile.split('.')[-1], dpi=300)
