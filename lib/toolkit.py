@@ -56,12 +56,12 @@ def assert_gene_ordering(df, genome_df):
 def extract_clusters(clustering_df, entry_col="BARCODE"):
     cluster_to_entries = {}
     for label, indices in clustering_df.groupby("LABEL").groups.items():
-        cluster_to_entries[label] = clustering_df[entry_col][indices].values
+        cluster_to_entries[str(label)] = clustering_df[entry_col][indices].values
     return cluster_to_entries
 
 
 def extract_cluster_labels(clustering_df):
-    return sorted(clustering_df.LABEL.unique())
+    return sorted(clustering_df.LABEL.unique().astype(str))
 
 
 """ TODO: check for bugs """
