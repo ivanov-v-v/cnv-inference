@@ -1,13 +1,13 @@
 import numpy as np
 
 import toolkit
-from data_types import ase_matrix
+from data_types import ase
 
 import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm import tqdm_notebook
 
-def test_deletion_ase_for_genes(genes_to_test, data, tags):
+def test_deletion_ase_for_genes(genes_to_test, data, tags, img_dir):
     required_data = ["genome", "gene_counts", "gene_to_snps", "clustering"]
     assert np.all(np.isin(required_data, list(data.keys()))),\
         f"{np.setdiff1d(required_data, list(data.keys()))} not found in data"
@@ -15,8 +15,8 @@ def test_deletion_ase_for_genes(genes_to_test, data, tags):
     assert np.all(np.isin(required_tags, list(tags.keys()))),\
         f"{np.setdiff1d(required_tags, list(tags.keys()))} not found in tags"
 
-    for test_gene_name in tqdm_notebook(genes_to_test, "processing genes"):
-        print(test_gene_name)
+    for test_gene_name in genes_to_test:#tqdm_notebook(genes_to_test, "processing genes"):
+#         print(test_gene_name)
         test_loc = np.ravel(
             np.where(
                 data["genome"]["GENE_NAME"].apply(
@@ -24,28 +24,36 @@ def test_deletion_ase_for_genes(genes_to_test, data, tags):
                 )
             )
         )
-        if not test_loc:
-            print(f"{test_gene_name} is not found in the reference genome (hg19)")
+        if len(test_loc) == 0:
+#             print(f"{test_gene_name} is not found in the reference genome (hg19)")
             continue
 
         test_gene_id = data["genome"]["GENE_ID"].iloc[test_loc].values[0]
         snps_covered = data["gene_to_snps"][test_gene_id]
 
-        if not snps_covered:
-            print(f"{test_gene_name} doesn't intersect phased SNPs")
+        if len(snps_covered) == 0:
+#             print(f"{test_gene_name} doesn't intersect phased SNPs")
             continue
-
+    
         unique_labels = data['clustering']['LABEL'].unique()
+#         print(unique_labels)
         unique_labels.sort()
         n_clusters = unique_labels.size
 
         fig, axes = plt.subplots(
-            1, n_clusters,
-            figsize=(10 * n_clusters, 10),
-            sharey=True
+            np.ceil(n_clusters / 3).astype(int), 3,
+            figsize=(30, 10 * np.ceil(n_clusters / 3)),
+            sharey=True,
+            squeeze=False
+        )
+        chrom, start, end = np.ravel(
+            data["genome"]\
+            .iloc[test_loc, :]\
+            [["CHROM", "START", "END"]]\
+            .values
         )
         fig.suptitle(
-            f"Gene {test_gene_name}"
+            f"Gene {test_gene_name}, chrom{chrom}, {start}-{end}"
             f" (intersects {len(snps_covered)} phased SNPs)\n"
             "ASE ratios,"
             f" (genes, {tags['data']}, {tags['sample']}, {tags['clustering']} clustering)."
@@ -55,9 +63,10 @@ def test_deletion_ase_for_genes(genes_to_test, data, tags):
         sns.set(font_scale=1.5)
 
         for i, label in enumerate(unique_labels):
-            ax = axes[i]
-            cluster_barcodes = data['clustering'] \
-                .query(f"LABEL == {label}")["BARCODE"]
+            ax = axes[i // 3, i % 3]
+            cluster_barcodes = data['clustering'][
+                data["clustering"]["LABEL"] == label
+            ]["BARCODE"]
             cluster_counts = data['gene_counts'][
                 data['gene_counts'].columns.intersection(
                     np.hstack((
@@ -79,8 +88,8 @@ def test_deletion_ase_for_genes(genes_to_test, data, tags):
                 if (~np.isnan(tmp_df[f"{barcode}_dp"].values)
                     and tmp_df[f"{barcode}_dp"].values > 0)
             ]
-            if not informative_column_list:
-                print(f"{test_gene_name} is not expressed in cluster {label}")
+            if len(informative_column_list) == 0:
+#                 print(f"{test_gene_name} is not expressed in cluster {label}")
                 continue
 
             tmp_df = tmp_df[
@@ -88,7 +97,7 @@ def test_deletion_ase_for_genes(genes_to_test, data, tags):
                     np.hstack(informative_column_list)
                 )
             ]
-            tmp_ase_df = ase_matrix.compute_ase(
+            tmp_ase_df = ase.compute_ase(
                 tmp_df,
                 toolkit.extract_barcodes(tmp_df)
             )
@@ -110,10 +119,12 @@ def test_deletion_ase_for_genes(genes_to_test, data, tags):
             )
             ax.set_xlim(-0.1, 1.1)
             ax.legend().get_frame().set_facecolor("white")
-        fig.show()
+        fig.savefig(f"{img_dir}/{test_gene_name}.png")
+        plt.close(fig)
+#         fig.show()
 
 
-def test_deletion_ase_for_snps(genes_to_test, data):
+def test_deletion_ase_for_snps(genes_to_test, data, tags,img_dir):
     required_data = ["non_merged_genome", "raw_counts", "clustering"]
     assert np.all(np.isin(required_data, list(data.keys()))),\
         f"{np.setdiff1d(required_data, list(data.keys()))} not found in data"
@@ -125,17 +136,18 @@ def test_deletion_ase_for_snps(genes_to_test, data):
 
     cluster_labels = toolkit.extract_cluster_labels(data["clustering"])
 
-    for gene_name in tqdm_notebook(genes_to_test):
+    for gene_name in genes_to_test:#tqdm_notebook(genes_to_test):
         gene_info = data["non_merged_genome"][
             data["non_merged_genome"]["GENE_NAME"]
             == gene_name
-            ]
+        ]
+        
         if gene_info.index.size == 0:
-            print(f"{gene_name} not in index")
+#             print(f"{gene_name} not in index")
             continue
 
         if gene_info.shape[0] > 1:
-            print(f"{gene_name} is ambiguous in hg19")
+#             print(f"{gene_name} is ambiguous in hg19")
             continue
 
         gene_start, gene_end = gene_info[["START", "END"]].values.ravel()
@@ -146,7 +158,7 @@ def test_deletion_ase_for_snps(genes_to_test, data):
         )
 
         if ~np.any(snp_covered_mask):
-            print(f"{gene_name} doesn't intersect phased SNPs")
+#             print(f"{gene_name} doesn't intersect phased SNPs")
             continue
 
         clustered_snp_counts_df = toolkit.aggregate_by_barcode_groups(
@@ -154,16 +166,26 @@ def test_deletion_ase_for_snps(genes_to_test, data):
             data["clustering"],
         ).to_dense()[on_3_mask][snp_covered_mask]
 
-        clustered_snp_ase_df = ase_matrix.compute_ase(
+        clustered_snp_ase_df = ase.compute_ase(
             clustered_snp_counts_df,
             cluster_labels,
         )
-
-        fig, axes = plt.subplots(1, 3, figsize=(30, 10))
-        fig.suptitle(f"Each dot is a SNP intersecting {gene_name}.",
-                     weight="bold")
+        n_clusters = len(cluster_labels)
+        chrom, start, end = np.ravel(gene_info[["CHROM", "START", "END"]].values)
+        fig, axes = plt.subplots(
+            np.ceil(n_clusters / 3).astype(int),
+            figsize=(30, 10 * np.ceil(n_clusters / 3).astype(int)),
+            sharey=True,
+            squeeze=False
+        )
+        fig.suptitle(
+            f"Each dot is a SNP intersecting {gene_name}"
+            f" on chr{chrom}, {start}-{end}.\n"
+            f" (genes, {tags['data']}, {tags['sample']}, {tags['clustering']} clustering).",
+            weight="bold"
+        )
         for i, label in enumerate(cluster_labels):
-            ax = axes[i]
+            ax = axes[i // 3, i % 3]
             ax.set_title(
                 f"Cluster label: {label}.",
                 weight="bold"
@@ -184,3 +206,6 @@ def test_deletion_ase_for_snps(genes_to_test, data):
             )
             ax.set_xlim(-0.1, 1.1)
             ax.legend().get_frame().set_facecolor("white")
+        fig.savefig(f"{img_dir}/{gene_name}.png")
+        plt.close(fig)
+#         fig.show()

@@ -17,4 +17,6 @@ class SimulationManager:
         print("Done with sampling", file=self._logfile)
         y_pred = self.classifier.predict(sampled_counts_df)
         print("Done with predicting", file=self._logfile)
-        return y_pred, y_true
+        na_stats = sampled_counts_df.isna().mean(axis=0)
+        n_rows = sampled_counts_df.shape[0]
+        return y_pred, y_true, na_stats, n_rows
