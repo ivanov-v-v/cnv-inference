@@ -353,7 +353,7 @@ class XCloneGibbsSampler:
             Theta_G=params.Theta_G
         )
         
-    def update_I_G(self, params: XCloneDist):
+    def update_I_G(self, params: XCloneDistrib):
         """
         Sample new clonal labels for each cell in scRNA
         in accordance with the probability distribution over the classes
@@ -381,7 +381,7 @@ class XCloneGibbsSampler:
             changed_mask=changed_mask
         )
         
-    def sample(self, params: XCloneDist):
+    def sample(self, params: XCloneDistrib):
         """
         Make a snapshot of current model parameters,
         sample new clonal labels, update the posterior
@@ -480,9 +480,9 @@ class XClone:
         """
         log_file.write(
             "{}\t{:.3f}\t{:.3f}\n".format(
-                -self._best_loglik
+                -self._best_loglik,
                 100 * np.mean(self._changed_mask),
-                self._iter_count,
+                self._iter_count
             )
         )
         log_file.flush()
