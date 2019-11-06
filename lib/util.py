@@ -14,7 +14,7 @@ def pickle_dump(obj, path):
     with open(path, "wb") as outfile:
         if isinstance(obj, pd.DataFrame) or isinstance(obj, pd.SparseDataFrame):
             obj.reset_index(drop=True, inplace=True)
-        pickle.dump(obj, outfile)
+        pickle.dump(obj, outfile, protocol=4)
 
         
 def pickle_load(path):
@@ -84,10 +84,8 @@ def is_sorted(iterable: Iterable):
 
 
 def load_cookiecutter_info(project_config):
-    return {
-        '_'.join(key.split("_")[1:]).lower() : value 
-        for key, value 
-        in project_config.__dict__.items() 
-        if key.startswith("MB_")
-    
-    }
+    return {key : project_config.__dict__[key] 
+            for key in ["ROOT", 
+                        "DATA", "RAW", "TMP", "PROCESSED", 
+                        "IMG", 
+                        "SRC", "SCRIPTS", "TESTS", "LIB", "NOTEBOOKS"]}

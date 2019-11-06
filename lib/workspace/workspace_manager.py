@@ -7,7 +7,9 @@ from tqdm import tqdm_notebook
 import json
 import json2table
 
-import cnv_inference_config
+import numpy as np
+
+import xclone_config
 import util
 
 class WorkspaceManager:
@@ -20,16 +22,19 @@ class WorkspaceManager:
     ):
         
         if cookiecutter_info is None:
-            cookiecutter_info = util.load_cookiecutter_info(
-                cnv_inference_config
-            )
+            cookiecutter_info = util.load_cookiecutter_info(xclone_config)
+        
+        if experiment_info is not None:
+            assert np.all(np.isin(["sample", "modality"], 
+                                  list(experiment_info.keys()))),\
+                "Must provide sample and modality information."
         
         self._nbconfig = defaultdict(dict)
         self._nbconfig["task_name"] = task_name
         self._nbconfig["experiment_info"] = experiment_info
         self._nbconfig["cookiecutter_info"] = cookiecutter_info
         self._nbconfig["config_dir"] = os.path.join(
-            cookiecutter_info["notebooks"],
+            cookiecutter_info["NOTEBOOKS"],
             task_name
         )
         self._creation_timestamp = datetime.now()
@@ -43,14 +48,22 @@ class WorkspaceManager:
     @property
     def experiment_info(self):
         return self._nbconfig["experiment_info"]
+
+    @property
+    def sample(self):
+        return self._nbconfig["experiment_info"]["sample"]
+
+    @property
+    def modality(self):
+        return self._nbconfig["experiment_info"]["modality"]
         
     @property
     def dir(self):
-        return self._nbconfig["data_dir"]["sample"]
+        return self._nbconfig["data_dir"]["modality"]
     
     @property
     def tmp_dir(self):
-        return self._nbconfig["tmp_data_dir"]["sample"]
+        return self._nbconfig["tmp_data_dir"]["modality"]
     
     @property
     def data(self):
@@ -115,7 +128,10 @@ class WorkspaceManager:
                     f" as {data_type} instead of {filename}"
             
     def clear_workspace(self):
-        shutil.rmtree(self._nbconfig["tmp_data_dir"]["sample"])
+        shutil.rmtree(
+            self._nbconfig["tmp_data_dir"]["modality"], 
+            ignore_errors=True
+        )
     
     def add_entry(self, data_type, filename):
         self._staged_for_commit[data_type] = filename
@@ -135,18 +151,18 @@ class WorkspaceManager:
     def verify(self):
         for data_type in self._staged_for_commit:
             assert os.path.exists(os.path.join(
-                self._nbconfig["tmp_data_dir"]["sample"],
+                self._nbconfig["tmp_data_dir"]["modality"],
                 f"{data_type}.pkl"
             )), f"Malformed commit: {data_type} not found in workspace"
             
     def push(self):
         for data_type, filename in self._staged_for_commit.items():
             self._nbconfig["tmp_data"][data_type] = os.path.join(
-                self._nbconfig["tmp_data_dir"]["sample"],
+                self._nbconfig["tmp_data_dir"]["modality"],
                 f"{data_type}.pkl"
             )
             self._nbconfig["data"][data_type] = os.path.join(
-                self._nbconfig["data_dir"]["sample"],
+                self._nbconfig["data_dir"]["modality"],
                 filename
             )
             print("{} —> {}".format(
@@ -162,18 +178,21 @@ class WorkspaceManager:
     def _include_data(self, requirements):
         print("processing read-only data directory", file=self._logstream)
         self._nbconfig["data_dir"]["root"] = \
-            self._nbconfig["cookiecutter_info"]["processed"]
+            self._nbconfig["cookiecutter_info"]["PROCESSED"]
         self._nbconfig["data_dir"]["sample"] = os.path.join(
             self._nbconfig["data_dir"]["root"],
-            self._nbconfig["experiment_info"]["sample"],
-            self._nbconfig["experiment_info"]["data"]
+            self._nbconfig["experiment_info"]["sample"]
+        )
+        self._nbconfig["data_dir"]["modality"] = os.path.join(
+            self._nbconfig["data_dir"]["sample"],
+            self._nbconfig["experiment_info"]["modality"]
         )
         for dirpath in self._nbconfig["data_dir"].values():
             assert os.path.exists(dirpath), f"{dirpath} doesn't exist"
             
         self._nbconfig["data"] = {
             dtype : os.path.join(
-                self._nbconfig["data_dir"]["sample"],
+                self._nbconfig["data_dir"]["modality"],
                 requirements[dtype]
             )
             for dtype in requirements.keys()
@@ -184,17 +203,20 @@ class WorkspaceManager:
     def _include_tmp_data(self, requirements):
         print("processing workspace directory", file=self._logstream)
         self._nbconfig["tmp_data_dir"]["root"] = os.path.join(
-            self._nbconfig["cookiecutter_info"]["tmp"], 
+            self._nbconfig["cookiecutter_info"]["TMP"], 
             self._nbconfig["task_name"]
         )
         self._nbconfig["tmp_data_dir"]["sample"] = os.path.join(
             self._nbconfig["tmp_data_dir"]["root"],
-            self._nbconfig["experiment_info"]["sample"],
-            self._nbconfig["experiment_info"]["data"]
+            self._nbconfig["experiment_info"]["sample"]
+        )
+        self._nbconfig["tmp_data_dir"]["modality"] = os.path.join(
+            self._nbconfig["tmp_data_dir"]["sample"],
+            self._nbconfig["experiment_info"]["modality"]
         )
         self._nbconfig["tmp_data"] = {
             dtype : os.path.join(
-                self._nbconfig["tmp_data_dir"]["sample"],
+                self._nbconfig["tmp_data_dir"]["modality"],
                 f"{dtype}.pkl"
             ) for dtype in requirements.keys()
         }
@@ -202,12 +224,16 @@ class WorkspaceManager:
     def _include_img(self):
         print("processing image directory", file=self._logstream)
         self._nbconfig["img_dir"]["root"] = os.path.join(
-            self._nbconfig["cookiecutter_info"]["img"], 
+            self._nbconfig["cookiecutter_info"]["IMG"], 
             self._nbconfig["task_name"]
         )
         self._nbconfig["img_dir"]["sample"] = os.path.join(
             self._nbconfig["img_dir"]["root"],
             self._nbconfig["experiment_info"]["sample"]
+        )
+        self._nbconfig["img_dir"]["modality"] = os.path.join(
+            self._nbconfig["img_dir"]["sample"],
+            self._nbconfig["experiment_info"]["modality"]
         )
         for dirpath in self._nbconfig["img_dir"].values():
             # mkdir -p dirpath
@@ -215,9 +241,8 @@ class WorkspaceManager:
     
     def _upload_tmp_data(self, requirements):
         print("loading data to workspace directory", file=self._logstream)
-        shutil.rmtree(self._nbconfig["tmp_data_dir"]["sample"], 
-                      ignore_errors=True)
-        os.makedirs(self._nbconfig["tmp_data_dir"]["sample"]) 
+        self.clear_workspace()
+        os.makedirs(self._nbconfig["tmp_data_dir"]["modality"]) 
         
         for dtype in tqdm_notebook(
             requirements.keys(),
@@ -233,15 +258,17 @@ class WorkspaceManager:
             )
     
     def _write_config(self):
-        outfile = "{}/{}_workspace.pkl".format(
+        outfile = "{}/{}_{}_workspace.pkl".format(
             self._nbconfig['config_dir'],
-            self._nbconfig['experiment_info']["data"]
+            self._nbconfig["experiment_info"]["sample"],
+            self._nbconfig['experiment_info']["modality"]
         )
         util.pickle_dump(self._nbconfig, outfile)
             
     def _load_config(self):
-        infile = "{}/{}_workspace.pkl".format(
+        infile = "{}/{}_{}_workspace.pkl".format(
             self._nbconfig['config_dir'],
-            self._nbconfig['experiment_info']["data"]
+            self._nbconfig["experiment_info"]["sample"],
+            self._nbconfig['experiment_info']["modality"]
         )
         self._nbconfig = util.pickle_load(infile)
