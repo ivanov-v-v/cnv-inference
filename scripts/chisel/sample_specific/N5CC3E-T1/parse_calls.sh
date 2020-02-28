@@ -1,0 +1,2 @@
+#!/usr/bin/bash
+python $XC_SCRIPTS/chisel/parse_calls.py --chisel_outs_dir "/icgc/dkfzlsdf/analysis/B260/users/v390v/chisel/outs/N5CC3E-T1/calls/" --output_dir "/icgc/dkfzlsdf/analysis/B260/users/v390v/xclone/data/processed/N5CC3E-T1/scATAC/chisel_5mb" --usecols "#CHR START END CELL A_COUNT B_COUNT BAF CLUSTER CN_STATE" --names "CHROM START END BARCODE RD AD BAF LABEL COPY_STATE" --verbose --save_individual_cna --save_as_csv
